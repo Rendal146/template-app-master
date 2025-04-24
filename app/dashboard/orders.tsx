@@ -32,7 +32,7 @@ export default function OrderView(): JSX.Element {
     const [receiptData, setReceiptData] = useState<{
         items: CartItem[];
         subtotal: number;
-        tax: number;
+        tax: number; // Add tax property back
         total: number;
         date: string;
         orderNumber: string;
@@ -61,29 +61,9 @@ export default function OrderView(): JSX.Element {
         return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
     };
 
-    const calculateTax = (subtotal: number): number => {
-        return subtotal * 0.08; // 8% tax
+    const calculateTotal = (subtotal: number): number => {
+        return subtotal; // No longer adding tax
     };
-
-    const calculateTotal = (subtotal: number, tax: number): number => {
-        return subtotal + tax;
-    };
-
-    const deleteCart = (): void => {
-        Alert.alert(
-            'Delete Cart',
-            'Are you sure you want to delete all items from your cart?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => clearCart(),
-                },
-            ]
-        );
-    };
-
     const proceedToPayment = (): void => {
         if (cart.length === 0) {
             Alert.alert('Cart is Empty', 'Please add items to your cart before proceeding to payment.');
@@ -106,13 +86,12 @@ export default function OrderView(): JSX.Element {
         
         // Prepare receipt data
         const subtotal = calculateSubtotal();
-        const tax = calculateTax(subtotal);
-        const total = calculateTotal(subtotal, tax);
-        
+        const total = calculateTotal(subtotal);
+
         setReceiptData({
             items: [...cart],
             subtotal: subtotal,
-            tax: tax,
+            tax: 0, // Set tax to 0
             total: total,
             date: formatDate(),
             orderNumber: generateOrderNumber()
@@ -174,15 +153,8 @@ export default function OrderView(): JSX.Element {
         const itemToRemove = cart.find(item => item.id === itemId);
         
         if (itemToRemove) {
-            if (itemToRemove.quantity > 1) {
-                removeFromCart(itemId);
-                const { name, price } = itemToRemove;
-                for (let i = 0; i < itemToRemove.quantity - 1; i++) {
-                    addToCart(itemId, name, price);
-                }
-            } else {
-                removeFromCart(itemId);
-            }
+            // Simply remove one instance of the item
+            removeFromCart(itemId);
         }
     };
 
@@ -260,8 +232,7 @@ export default function OrderView(): JSX.Element {
     };
 
     const subtotal = calculateSubtotal();
-    const tax = calculateTax(subtotal);
-    const total = calculateTotal(subtotal, tax);
+    const total = calculateTotal(subtotal);
 
     const renderReceiptModal = () => {
         if (!receiptData) return null;
@@ -390,24 +361,6 @@ export default function OrderView(): JSX.Element {
                                         fontSize: fontSizeSmall
                                     }}>
                                         ₱{receiptData.subtotal.toFixed(2)}
-                                    </Text>
-                                </View>
-                                <View style={{
-                                    flexDirection: 'row',
-                                    justifyContent: 'space-between',
-                                    paddingVertical: 4
-                                }}>
-                                    <Text style={{
-                                        color: '#4E342E',
-                                        fontSize: fontSizeSmall
-                                    }}>
-                                        Tax (8%):
-                                    </Text>
-                                    <Text style={{
-                                        color: '#4E342E',
-                                        fontSize: fontSizeSmall
-                                    }}>
-                                        ₱{receiptData.tax.toFixed(2)}
                                     </Text>
                                 </View>
                                 <View style={{
@@ -817,8 +770,8 @@ export default function OrderView(): JSX.Element {
                         justifyContent: 'space-between',
                         paddingVertical: 6
                     }}>
-                        <Text style={{ fontSize: fontSizeNormal }}>Tax (8%):</Text>
-                        <Text style={{ fontSize: fontSizeNormal }}>₱{tax.toFixed(2)}</Text>
+                        <Text style={{ fontSize: fontSizeNormal }}>Subtotal:</Text>
+                        <Text style={{ fontSize: fontSizeNormal }}>₱{subtotal.toFixed(2)}</Text>
                     </View>
                     <View style={{
                         flexDirection: 'row',
@@ -932,14 +885,6 @@ export default function OrderView(): JSX.Element {
                     justifyContent: 'space-between',
                     paddingVertical: 6
                 }}>
-                    <Text style={{ fontSize: fontSizeNormal }}>Tax (8%):</Text>
-                    <Text style={{ fontSize: fontSizeNormal }}>₱{tax.toFixed(2)}</Text>
-                </View>
-                <View style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    paddingVertical: 6
-                }}>
                     <Text style={{
                         fontWeight: 'bold',
                         fontSize: fontSizeNormal
@@ -964,27 +909,6 @@ export default function OrderView(): JSX.Element {
             }}>
                 {isLandscape && !isSmallDevice ? (
                     <>
-                        <TouchableOpacity
-                            style={{
-                                flex: 1,
-                                backgroundColor: 'white',
-                                paddingVertical: buttonPadding,
-                                borderRadius: 8,
-                                alignItems: 'center',
-                                marginRight: 8,
-                                borderWidth: 1,
-                                borderColor: '#D84315'
-                            }}
-                            onPress={deleteCart}
-                        >
-                            <Text style={{
-                                color: '#D84315',
-                                fontWeight: 'bold',
-                                fontSize: fontSizeNormal
-                            }}>
-                                Delete Cart
-                            </Text>
-                        </TouchableOpacity>
 
                         <TouchableOpacity
                             style={{
@@ -1025,26 +949,7 @@ export default function OrderView(): JSX.Element {
                                 Proceed to Payment
                             </Text>
                         </TouchableOpacity>
-                        
-                        <TouchableOpacity
-                            style={{
-                                backgroundColor: 'white',
-                                paddingVertical: buttonPadding,
-                                borderRadius: 8,
-                                alignItems: 'center',
-                                borderWidth: 1,
-                                borderColor: '#D84315'
-                            }}
-                            onPress={deleteCart}
-                        >
-                            <Text style={{
-                                color: '#D84315',
-                                fontWeight: 'bold',
-                                fontSize: fontSizeNormal
-                            }}>
-                                Delete Cart
-                            </Text>
-                        </TouchableOpacity>
+
                     </>
                 )}
             </View>
