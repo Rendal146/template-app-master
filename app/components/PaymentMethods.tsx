@@ -1,268 +1,80 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { 
     View, 
     Text, 
-    SafeAreaView, 
-    FlatList, 
     TouchableOpacity, 
-    Alert, 
     Modal, 
     ScrollView, 
-    TextInput, 
-    Image,
+    Image, 
+    Alert,
     useWindowDimensions,
-    Platform,
-    StatusBar
+    StyleProp,
+    ViewStyle,
+    DimensionValue
 } from 'react-native';
-import { useCart, CartItem } from '../context/CartContext';
 import { Ionicons } from '@expo/vector-icons';
+import { CartItem } from '../context/CartContext';
 import * as ImagePicker from 'expo-image-picker';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import PaymentMethods from '../components/PaymentMethods';
 
-export default function OrderView(): JSX.Element {
-    const { cart, removeFromCart, clearCart, addToCart } = useCart();
-    const [showPaymentView, setShowPaymentView] = useState(false);
-    const [showReceipt, setShowReceipt] = useState(false);
-    const [showGcashModal, setShowGcashModal] = useState(false);
-    const [paymentMethod, setPaymentMethod] = useState('');
-    const [gcashStep, setGcashStep] = useState(1);
-    const [receiptUploaded, setReceiptUploaded] = useState(false);
-    const [receiptImage, setReceiptImage] = useState<string | null>(null);
-    const [receiptData, setReceiptData] = useState<{
+interface PaymentMethodsProps {
+    isLandscape: boolean;
+    isSmallDevice: boolean;
+    fontSizeNormal: number;
+    fontSizeSubheading: number;
+    fontSizeSmall: number;
+    buttonPadding: number;
+    sectionSpacing: number;
+    receiptImageHeight: number;
+    isTablet: boolean;
+    modalWidth: string | number;
+    modalMaxHeight: string | number;
+    receiptData: {
         items: CartItem[];
         subtotal: number;
         tax: number;
         total: number;
         date: string;
         orderNumber: string;
-    } | null>(null);
+    } | null;
+    showReceipt: boolean;
+    showGcashModal: boolean;
+    paymentMethod: string;
+    receiptUploaded: boolean;
+    receiptImage: string | null;
+    handlePayment: (method: string) => void;
+    setShowReceipt: (show: boolean) => void;
+    setShowGcashModal: (show: boolean) => void;
+    completeOrder: () => void;
+    completeGcashPayment: () => void;
+    pickImage: () => void;
+}
 
-    // Responsive dimensioning
-    const { width, height } = useWindowDimensions();
-    const insets = useSafeAreaInsets();
-    const isLandscape = width > height;
-    const isTablet = width >= 768;
-    const isSmallDevice = width < 375;
+const PaymentMethods: React.FC<PaymentMethodsProps> = ({
+    isLandscape,
+    isSmallDevice,
+    fontSizeNormal,
+    fontSizeSubheading,
+    fontSizeSmall,
+    buttonPadding,
+    sectionSpacing,
+    receiptImageHeight,
+    isTablet,
+    modalWidth,
+    modalMaxHeight,
+    receiptData,
+    showReceipt,
+    showGcashModal,
+    paymentMethod,
+    receiptUploaded,
+    receiptImage,
+    handlePayment,
+    setShowReceipt,
+    setShowGcashModal,
+    completeOrder,
+    completeGcashPayment,
+    pickImage
+}) => {
     
-    // Dynamic size calculations
-    const modalWidth = isTablet ? '70%' : isLandscape ? '80%' : '90%';
-    const modalMaxHeight = isLandscape ? '90%' : '80%';
-    const fontSizeHeading = isTablet ? 28 : isSmallDevice ? 20 : 24;
-    const fontSizeSubheading = isTablet ? 22 : isSmallDevice ? 16 : 18;
-    const fontSizeNormal = isTablet ? 18 : isSmallDevice ? 14 : 16;
-    const fontSizeSmall = isTablet ? 16 : isSmallDevice ? 12 : 14;
-    const buttonPadding = isSmallDevice ? 10 : 12;
-    const itemPadding = isSmallDevice ? 8 : 10;
-    const sectionSpacing = isSmallDevice ? 16 : 20;
-    const receiptImageHeight = isLandscape ? 150 : 200;
-
-    const calculateSubtotal = (): number => {
-        return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    };
-
-    const calculateTax = (subtotal: number): number => {
-        return subtotal * 0.08; // 8% tax
-    };
-
-    const calculateTotal = (subtotal: number, tax: number): number => {
-        return subtotal + tax;
-    };
-
-    const deleteCart = (): void => {
-        Alert.alert(
-            'Delete Cart',
-            'Are you sure you want to delete all items from your cart?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: () => clearCart(),
-                },
-            ]
-        );
-    };
-
-    const proceedToPayment = (): void => {
-        if (cart.length === 0) {
-            Alert.alert('Cart is Empty', 'Please add items to your cart before proceeding to payment.');
-            return;
-        }
-        setShowPaymentView(true);
-    };
-
-    const generateOrderNumber = (): string => {
-        return `ORD-${Math.floor(100000 + Math.random() * 900000)}`;
-    };
-
-    const formatDate = (): string => {
-        const now = new Date();
-        return `${now.toLocaleDateString()} ${now.toLocaleTimeString()}`;
-    };
-
-    const handlePayment = (method: string): void => {
-        setPaymentMethod(method);
-        
-        // Prepare receipt data
-        const subtotal = calculateSubtotal();
-        const tax = calculateTax(subtotal);
-        const total = calculateTotal(subtotal, tax);
-        
-        setReceiptData({
-            items: [...cart],
-            subtotal: subtotal,
-            tax: tax,
-            total: total,
-            date: formatDate(),
-            orderNumber: generateOrderNumber()
-        });
-        
-        if (method === 'Cash') {
-            // Show receipt modal for Cash payment
-            setShowReceipt(true);
-        } else if (method === 'GCash') {
-            // Show GCash payment modal
-            setGcashStep(1);
-            setShowGcashModal(true);
-        }
-    };
-
-    const completeOrder = (): void => {
-        Alert.alert('Thank You!', 'Your order has been placed. Enjoy your coffee!');
-        setShowReceipt(false);
-        setShowPaymentView(false);
-        clearCart();
-    };
-
-    const completeGcashPayment = () => {
-        // Close GCash modal and show receipt
-        setShowGcashModal(false);
-        setShowReceipt(true);
-    };
-
-    const simulateUploadReceipt = () => {
-        // Simulate uploading a receipt
-        Alert.alert("Success", "Receipt uploaded successfully!");
-        setReceiptUploaded(true);
-    };
-
-    const pickImage = async () => {
-        // Request permissions
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        
-        if (status !== 'granted') {
-            Alert.alert('Permission Required', 'Please allow access to your photo library to upload a receipt.');
-            return;
-        }
-
-        // Launch image picker
-        const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [4, 3],
-            quality: 1,
-        });
-
-        if (!result.canceled && result.assets && result.assets.length > 0) {
-            setReceiptImage(result.assets[0].uri);
-            simulateUploadReceipt();
-        }
-    };
-
-    const handleRemoveItem = (itemId: string) => {
-        const itemToRemove = cart.find(item => item.id === itemId);
-        
-        if (itemToRemove) {
-            if (itemToRemove.quantity > 1) {
-                removeFromCart(itemId);
-                const { name, price } = itemToRemove;
-                for (let i = 0; i < itemToRemove.quantity - 1; i++) {
-                    addToCart(itemId, name, price);
-                }
-            } else {
-                removeFromCart(itemId);
-            }
-        }
-    };
-
-    const renderCartItem = ({ item }: { item: CartItem }, showRemoveButton: boolean = true) => {
-        const itemTotal = item.price * item.quantity;
-        return (
-            <View style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                paddingVertical: itemPadding,
-                borderBottomWidth: 1,
-                borderBottomColor: '#e0e0e0'
-            }}>
-                <Text style={{ 
-                    fontSize: fontSizeNormal,
-                    color: '#4E342E'
-                }}>
-                    {item.name} x {item.quantity}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={{ 
-                        fontSize: fontSizeNormal,
-                        color: '#4E342E',
-                        marginRight: showRemoveButton ? 16 : 0
-                    }}>
-                        ₱{itemTotal.toFixed(2)}
-                    </Text>
-                    {showRemoveButton && (
-                        <TouchableOpacity
-                            onPress={() => handleRemoveItem(item.id)}
-                            style={{
-                                padding: 4,
-                                backgroundColor: '#EFEBE9',
-                                borderRadius: 4,
-                                width: isSmallDevice ? 28 : 32,
-                                height: isSmallDevice ? 28 : 32,
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                            }}
-                        >
-                            <Ionicons 
-                                name="remove" 
-                                size={isSmallDevice ? 16 : 20} 
-                                color="#D32F2F" 
-                            />
-                        </TouchableOpacity>
-                    )}
-                </View>
-            </View>
-        );
-    };
-
-    const renderReceiptItem = ({ item }: { item: CartItem }) => {
-        const itemTotal = item.price * item.quantity;
-        return (
-            <View style={{
-                flexDirection: 'row',
-                justifyContent: 'space-between',
-                paddingVertical: 8
-            }}>
-                <Text style={{
-                    fontSize: fontSizeSmall,
-                    color: '#4E342E'
-                }}>
-                    {item.name} x {item.quantity}
-                </Text>
-                <Text style={{
-                    fontSize: fontSizeSmall,
-                    color: '#4E342E'
-                }}>
-                    ₱{itemTotal.toFixed(2)}
-                </Text>
-            </View>
-        );
-    };
-
-    const subtotal = calculateSubtotal();
-    const tax = calculateTax(subtotal);
-    const total = calculateTotal(subtotal, tax);
-
     const renderReceiptModal = () => {
         if (!receiptData) return null;
         
@@ -282,11 +94,11 @@ export default function OrderView(): JSX.Element {
                 }}>
                     <View style={{
                         backgroundColor: 'white',
-                        width: modalWidth,
+                        width: modalWidth as DimensionValue,
                         maxWidth: 500,
                         borderRadius: 12,
                         padding: isSmallDevice ? 16 : 20,
-                        maxHeight: modalMaxHeight
+                        maxHeight: modalMaxHeight as DimensionValue
                     }}>
                         <ScrollView showsVerticalScrollIndicator={false}>
                             <View style={{
@@ -516,11 +328,11 @@ export default function OrderView(): JSX.Element {
                 }}>
                     <View style={{
                         backgroundColor: 'white',
-                        width: modalWidth,
+                        width: modalWidth as DimensionValue,
                         maxWidth: 500,
                         borderRadius: 12,
                         padding: isSmallDevice ? 16 : 20,
-                        maxHeight: modalMaxHeight
+                        maxHeight: modalMaxHeight as DimensionValue
                     }}>
                         <ScrollView showsVerticalScrollIndicator={false}>
                             <View style={{
@@ -538,7 +350,7 @@ export default function OrderView(): JSX.Element {
                                 <Text style={{
                                     fontSize: fontSizeNormal,
                                     color: '#4E342E',
-                                    marginBottom: 16
+                                    marginBottom: 10
                                 }}>
                                     Total: ₱{receiptData?.total.toFixed(2)}
                                 </Text>
@@ -643,7 +455,7 @@ export default function OrderView(): JSX.Element {
                                                         borderRadius: 8,
                                                         marginBottom: 8
                                                     }}
-                                                    resizeMode="contain" // Changed to contain to show full image
+                                                    resizeMode="contain"
                                                 />
                                             ) : (
                                                 <View style={{
@@ -749,305 +561,96 @@ export default function OrderView(): JSX.Element {
         );
     };
 
-    if (showPaymentView) {
+    const PaymentMethodButtons = () => {
         return (
-            <SafeAreaView style={{
-                flex: 1,
-                backgroundColor: '#D7CCC8',
-                padding: 16,
-                paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 16 : 16,
-                paddingBottom: Math.max(16, insets.bottom)
+            <View style={{
+                flexDirection: isLandscape && !isSmallDevice ? 'row' : 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                width: '100%',
+                gap: 3
             }}>
-                {renderReceiptModal()}
-                {renderGcashModal()}
-                
-                <TouchableOpacity 
-                    onPress={() => setShowPaymentView(false)}
-                    style={{ marginBottom: 12 }}
+                {/* Cash Button - BIGGER SIZE */}
+                <TouchableOpacity
+                    style={{
+                        backgroundColor: '#6D4C41',
+                        paddingVertical: isSmallDevice ? buttonPadding + 4 : buttonPadding + 8,
+                        paddingHorizontal: isSmallDevice ? 20 : 24,
+                        borderRadius: 10,
+                        alignItems: 'center',
+                        marginBottom: isLandscape && !isSmallDevice ? 0 : 3,
+                        marginRight: isLandscape && !isSmallDevice ? 3 : 0,
+                        flexDirection: 'row',
+                        justifyContent: 'center',
+                        elevation: 3,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 2,
+                        width: isLandscape && !isSmallDevice ? '48%' : '100%'
+                    }}
+                    onPress={() => handlePayment('Cash')}
                 >
                     <Text style={{
-                        color: '#6D4C41',
+                        color: 'white',
                         fontWeight: 'bold',
-                        fontSize: fontSizeNormal
+                        fontSize: isSmallDevice ? fontSizeNormal : fontSizeNormal + 2
                     }}>
-                        ← Back
+                        Cash Payment
                     </Text>
                 </TouchableOpacity>
                 
-                <Text style={{
-                    fontSize: fontSizeHeading,
-                    fontWeight: 'bold',
-                    color: '#4E342E',
-                    marginBottom: 16
-                }}>
-                    Payment
-                </Text>
-
-                <View style={{
-                    borderTopWidth: 1,
-                    borderColor: '#e0e0e0',
-                    paddingTop: 20
-                }}>
+                {/* GCash Button - BIGGER SIZE */}
+                <TouchableOpacity
+                    style={{
+                        backgroundColor: '#007EFF',
+                        paddingVertical: isSmallDevice ? buttonPadding + 4 : buttonPadding + 8,
+                        paddingHorizontal: isSmallDevice ? 20 : 24,
+                        borderRadius: 10,
+                        alignItems: 'center',
+                        flexDirection: 'row',
+                        justifyContent: 'center',
+                        elevation: 3,
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.2,
+                        shadowRadius: 2,
+                        width: isLandscape && !isSmallDevice ? '48%' : '100%'
+                    }}
+                    onPress={() => handlePayment('GCash')}
+                >
                     <Text style={{
-                        fontSize: fontSizeSubheading,
+                        color: 'white',
                         fontWeight: 'bold',
-                        color: '#4E342E',
-                        marginBottom: 10
+                        fontSize: isSmallDevice ? fontSizeNormal : fontSizeNormal + 2
                     }}>
-                        Order Summary
+                        GCash Payment
                     </Text>
-                    <FlatList
-                        data={cart}
-                        keyExtractor={(item) => item.id}
-                        renderItem={(item) => renderCartItem(item, false)}
-                        ListEmptyComponent={
-                            <Text style={{
-                                textAlign: 'center',
-                                fontSize: fontSizeNormal,
-                                color: '#6D4C41',
-                                marginTop: 20
-                            }}>
-                                Your cart is empty.
-                            </Text>
-                        }
-                        style={{ marginBottom: 20 }}
-                    />
-                    <View style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        paddingVertical: 6
-                    }}>
-                        <Text style={{ fontSize: fontSizeNormal }}>Tax (8%):</Text>
-                        <Text style={{ fontSize: fontSizeNormal }}>₱{tax.toFixed(2)}</Text>
-                    </View>
-                    <View style={{
-                        flexDirection: 'row',
-                        justifyContent: 'space-between',
-                        paddingVertical: 6
-                    }}>
-                        <Text style={{
-                            fontWeight: 'bold',
-                            fontSize: fontSizeNormal
-                        }}>
-                            Total:
-                        </Text>
-                        <Text style={{
-                            fontWeight: 'bold',
-                            color: '#3077e3',
-                            fontSize: fontSizeNormal
-                        }}>
-                            ₱{total.toFixed(2)}
-                        </Text>
-                    </View>
-                </View>
-
-                <View style={{ flex: 1 }} />
-
-                <PaymentMethods 
-                    isLandscape={isLandscape}
-                    isSmallDevice={isSmallDevice}
-                    fontSizeNormal={fontSizeNormal}
-                    fontSizeSubheading={fontSizeSubheading}
-                    fontSizeSmall={fontSizeSmall}
-                    buttonPadding={buttonPadding}
-                    sectionSpacing={sectionSpacing}
-                    receiptImageHeight={receiptImageHeight}
-                    isTablet={isTablet}
-                    modalWidth={modalWidth}
-                    modalMaxHeight={modalMaxHeight}
-                    receiptData={receiptData}
-                    showReceipt={showReceipt}
-                    showGcashModal={showGcashModal}
-                    paymentMethod={paymentMethod}
-                    receiptUploaded={receiptUploaded}
-                    receiptImage={receiptImage}
-                    handlePayment={handlePayment}
-                    setShowReceipt={setShowReceipt}
-                    setShowGcashModal={setShowGcashModal}
-                    completeOrder={completeOrder}
-                    completeGcashPayment={completeGcashPayment}
-                    pickImage={pickImage}
-                />
-            </SafeAreaView>
+                </TouchableOpacity>
+            </View>
         );
-    }
+    };
 
     return (
-        <SafeAreaView style={{
-            flex: 1,
-            backgroundColor: '#D7CCC8',
-            padding: 16,
-            paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 16 : 16,
-            paddingBottom: Math.max(16, insets.bottom)
-        }}>
-            <Text style={{
-                fontSize: fontSizeHeading,
-                fontWeight: 'bold',
-                color: '#4E342E',
-                marginBottom: 16
-            }}>
-                Your Order
-            </Text>
-
-            <FlatList
-                data={cart}
-                keyExtractor={(item) => item.id}
-                renderItem={(item) => renderCartItem(item, true)}
-                ListEmptyComponent={
-                    <Text style={{
-                        textAlign: 'center',
-                        fontSize: fontSizeNormal,
-                        color: '#6D4C41',
-                        marginTop: 20
-                    }}>
-                        Your cart is empty.
-                    </Text>
-                }
-                style={{ marginBottom: 20 }}
-            />
-
-            <View style={{
-                borderTopWidth: 1,
-                borderColor: '#e0e0e0',
-                paddingTop: 20
+        <>
+            {renderReceiptModal()}
+            {renderGcashModal()}
+            <View style={{ 
+                marginTop: 20,
+                width: '100%'
             }}>
                 <Text style={{
                     fontSize: fontSizeSubheading,
                     fontWeight: 'bold',
                     color: '#4E342E',
-                    marginBottom: 10
+                    marginBottom: 18
                 }}>
-                    Order Summary
+                    Select Payment Method
                 </Text>
-                <View style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    paddingVertical: 6
-                }}>
-                    <Text style={{ fontSize: fontSizeNormal }}>Subtotal:</Text>
-                    <Text style={{ fontSize: fontSizeNormal }}>₱{subtotal.toFixed(2)}</Text>
-                </View>
-                <View style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    paddingVertical: 6
-                }}>
-                    <Text style={{ fontSize: fontSizeNormal }}>Tax (8%):</Text>
-                    <Text style={{ fontSize: fontSizeNormal }}>₱{tax.toFixed(2)}</Text>
-                </View>
-                <View style={{
-                    flexDirection: 'row',
-                    justifyContent: 'space-between',
-                    paddingVertical: 6
-                }}>
-                    <Text style={{
-                        fontWeight: 'bold',
-                        fontSize: fontSizeNormal
-                    }}>
-                        Total:
-                    </Text>
-                    <Text style={{
-                        fontWeight: 'bold',
-                        color: '#3077e3',
-                        fontSize: fontSizeNormal
-                    }}>
-                        ₱{total.toFixed(2)}
-                    </Text>
-                </View>
+                <PaymentMethodButtons />
             </View>
-
-            <View style={{ flex: 1 }} />
-
-            <View style={{
-                flexDirection: isLandscape && !isSmallDevice ? 'row' : 'column',
-                marginTop: 20
-            }}>
-                {isLandscape && !isSmallDevice ? (
-                    <>
-                        <TouchableOpacity
-                            style={{
-                                flex: 1,
-                                backgroundColor: 'white',
-                                paddingVertical: buttonPadding,
-                                borderRadius: 8,
-                                alignItems: 'center',
-                                marginRight: 8,
-                                borderWidth: 1,
-                                borderColor: '#D84315'
-                            }}
-                            onPress={deleteCart}
-                        >
-                            <Text style={{
-                                color: '#D84315',
-                                fontWeight: 'bold',
-                                fontSize: fontSizeNormal
-                            }}>
-                                Delete Cart
-                            </Text>
-                        </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={{
-                                flex: 1,
-                                backgroundColor: '#6D4C41',
-                                paddingVertical: buttonPadding,
-                                borderRadius: 8,
-                                alignItems: 'center'
-                            }}
-                            onPress={proceedToPayment}
-                        >
-                            <Text style={{
-                                color: 'white',
-                                fontWeight: 'bold',
-                                fontSize: fontSizeNormal
-                            }}>
-                                Proceed to Payment
-                            </Text>
-                        </TouchableOpacity>
-                    </>
-                ) : (
-                    <>
-                        <TouchableOpacity
-                            style={{
-                                backgroundColor: '#6D4C41',
-                                paddingVertical: buttonPadding,
-                                borderRadius: 8,
-                                alignItems: 'center',
-                                marginBottom: 12
-                            }}
-                            onPress={proceedToPayment}
-                        >
-                            <Text style={{
-                                color: 'white',
-                                fontWeight: 'bold',
-                                fontSize: fontSizeNormal
-                            }}>
-                                Proceed to Payment
-                            </Text>
-                        </TouchableOpacity>
-                        
-                        <TouchableOpacity
-                            style={{
-                                backgroundColor: 'white',
-                                paddingVertical: buttonPadding,
-                                borderRadius: 8,
-                                alignItems: 'center',
-                                borderWidth: 1,
-                                borderColor: '#D84315'
-                            }}
-                            onPress={deleteCart}
-                        >
-                            <Text style={{
-                                color: '#D84315',
-                                fontWeight: 'bold',
-                                fontSize: fontSizeNormal
-                            }}>
-                                Delete Cart
-                            </Text>
-                        </TouchableOpacity>
-                    </>
-                )}
-            </View>
-        </SafeAreaView>
+        </>
     );
-}
+};
+
+export default PaymentMethods;
